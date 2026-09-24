@@ -3,6 +3,8 @@ Repositorio  Ciencia de Datos II INF-8239-C2
 
 ## Unidad 01: Modelos avanzados, reducción dimensional y Green AI
 **Estudiante:** Jhonatan Leandro Cabral Pujols  
+
+
 **Laboratorio:** U01.LAB00 - Preparación y validación del entorno profesional  
 
 ---
@@ -52,3 +54,122 @@ git add .
 git commit -m "chore: create INF-8239 reproducible environment"
 git push
 ```
+
+**Laboratorio:** U01.LAB01 - Busqueda, seleccion y auditoria de un dataset publico
+
+Este repositorio contiene la selección, auditoría, contrato de datos y baseline predictivo para el mantenimiento industrial utilizando el dataset **AI4I 2020 Predictive Maintenance**.
+
+## 1. Instalación y Entorno
+El proyecto está optimizado para ejecutarse en VS Code / GitHub Codespaces con Python 3.10+.
+
+```bash
+# Crear y activar entorno virtual
+python -m venv .venv
+source .venv/bin/activate  # En Linux/Codespaces
+.venv\Scripts\activate   # En Windows PowerShell
+
+# Instalar dependencias
+pip install -r requirements.txt
+```
+
+## 2. Descarga Reproducible
+Los datos se obtienen directamente del repositorio UCI mediante el script modular en src/inf8239_u01/data.py:
+
+```python
+import io
+from pathlib import Path
+import urllib.request
+import zipfile
+import pandas as pd
+
+
+def download_csv(url: str, destination: str = "data/raw/dataset.csv") -> Path:
+    if not url.startswith(("https://", "http://")):
+        raise ValueError("La fuente debe ser una URL HTTP(S)")
+
+    path = Path(destination)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Si es un archivo ZIP (caso del repositorio UCI)
+    if url.endswith(".zip"):
+        req = urllib.request.Request(
+            url,
+            headers={"User-Agent": "Mozilla/5.0"},
+        )
+        with urllib.request.urlopen(req) as response:
+            zip_content = response.read()
+
+        with zipfile.ZipFile(io.BytesIO(zip_content)) as z:
+            csv_files = [f for f in z.namelist() if f.endswith(".csv")]
+            if not csv_files:
+                raise ValueError(
+                    "No se encontró ningún archivo CSV dentro del ZIP"
+                )
+            with z.open(csv_files[0]) as f:
+                frame = pd.read_csv(f)
+    else:
+        frame = pd.read_csv(url)
+
+    if frame.empty:
+        raise ValueError("El dataset descargado está vacío")
+
+    frame.to_csv(path, index=False)
+    return path
+```
+
+## 3. Ejecución en el Notebook (notebooks/02_auditoria_dataset.ipynb)
+
+Para garantizar que el módulo se importe de forma robusta sin importar el directorio de trabajo activo, se incorpora src al sys.path y se resuelve la ruta de destino respecto a la raíz del repositorio:
+
+```python
+from pathlib import Path
+import sys
+
+# 1. Asegurar que la carpeta 'src' esté en las rutas de importación de Python
+PROJECT_ROOT = (
+    Path.cwd().parent if Path.cwd().name == "notebooks" else Path.cwd()
+)
+src_dir = PROJECT_ROOT / "src"
+if str(src_dir) not in sys.path:
+    sys.path.insert(0, str(src_dir))
+
+# 2. Ahora sí se puede importar directamente
+from inf8239_u01.data import download_csv
+
+# 3. Descarga reproducible oficial desde UCI
+URL = "[https://archive.ics.uci.edu/static/public/601/ai4i+2020+predictive+maintenance+dataset.zip](https://archive.ics.uci.edu/static/public/601/ai4i+2020+predictive+maintenance+dataset.zip)"
+dest_path = PROJECT_ROOT / "data" / "raw" / "dataset.csv"
+
+path = download_csv(URL, destination=str(dest_path))
+print("Descarga completada y verificada en:", path)
+```
+
+## 4. Definicion del Problema:
+
+- **Target:** Machine failure (0: Operación normal, 1: Falla de la máquina).
+- **Métrica Principal:** F1-macro (junto con Recall de la clase minoritaria), debido al marcado desbalance de clases (~3.4% de eventos de falla).
+- **Mitigación de Data Leakage:** Se retiraron estrictamente los identificadores (UDI, Product ID) y los modos de falla específicos (TWF, HDF, PWF, OSF, RNF), ya que solo se revelan una vez producida la avería.
+
+
+## 5. Ejecución del Pipeline y Pruebas:
+
+Notebook principal: Ejecutar notebooks/02_auditoria_dataset.ipynb de inicio a fin.
+
+Pruebas automatizadas (pytest):
+
+```bash
+PYTHONPATH=src python -m pytest -q
+```
+
+## 6. Conclusión:
+
+> **Conclusión Técnica del Experimento y Auditoría de Datos**
+>
+> La selección y auditoría rigurosa del conjunto de datos **AI4I 2020 Predictive Maintenance** permitió sentar una base metodológica sólida y reproducible para la toma de decisiones en entornos de manufactura industrial. A través de la auditoría inicial se constató la integridad del archivo sin la presencia de valores ausentes (*missing values*) ni registros duplicados a lo largo de sus 10,000 instancias. No obstante, el desafío central del problema reside en dos dimensiones fundamentales: el severo desbalance de clases y la presencia de variables causales con potencial de fuga de información (*data leakage*).
+>
+> La variable dependiente `Machine failure` presenta apenas una tasa de incidencia del 3.39% frente a más de un 96% de estados operativos normales. Bajo este contexto, el uso de la exactitud (*accuracy*) como métrica rectora resulta metodológicamente inválido, tal como evidenció el modelo base trivial (*DummyClassifier*). Este clasificador ingenuo, al limitarse a predecir sistemáticamente la clase mayoritaria, obtiene un accuracy superior al 96% pero un **F1-macro inferior a 0.50**, fracasando rotundamente al predecir 0% de los eventos reales de fallo. Por tal motivo, se adoptó el **F1-macro** y el análisis de la matriz de confusión, donde el **falso negativo** representa el error más crítico: ignorar una falla incipiente conlleva roturas catastróficas, tiempos de inactividad imprevistos y costos operativos desproporcionados para la planta.
+>
+> Asimismo, la fase de saneamiento de variables fue determinante. La exclusión analítica de los identificadores (`UDI` y `Product ID`) evitó sobreajustes espurios por memorización de secuencias, mientras que la eliminación deliberada de los cinco modos de falla (`TWF`, `HDF`, `PWF`, `OSF`, `RNF`) blindó el flujo ante fugas del futuro. Al ser etiquetas que solo se constatan con posterioridad a la interrupción funcional de la máquina, incluirlas en el conjunto de entrenamiento habría provocado un modelo artificialmente perfecto pero inútil en un esquema de telemetría en tiempo real.
+>
+> Finalmente, la integración del pipeline con `ColumnTransformer` (escalando variables continuas como temperatura, torque y velocidad de giro, y codificando la variante cualitativa de producto) junto a una máquina de soporte vectorial (SVM) con núcleo RBF, demostró la viabilidad de capturar dependencias no lineales complejas entre las tensiones mecánicas y los gradientes térmicos. El establecimiento de pruebas automatizadas mediante `pytest` garantiza que las restricciones dimensionales y semánticas del contrato de datos perduren de manera confiable a lo largo de las iteraciones analíticas posteriores.
+
