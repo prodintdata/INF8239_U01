@@ -55,7 +55,7 @@ git commit -m "chore: create INF-8239 reproducible environment"
 git push
 ```
 
-**Laboratorio:** U01.LAB01 - Busqueda, seleccion y auditoria de un dataset publico
+**Laboratorio:** U01.LAB02 - Busqueda, seleccion y auditoria de un dataset publico
 
 Este repositorio contiene la selección, auditoría, contrato de datos y baseline predictivo para el mantenimiento industrial utilizando el dataset **AI4I 2020 Predictive Maintenance**.
 
