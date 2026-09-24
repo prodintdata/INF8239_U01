@@ -5,17 +5,14 @@ Repositorio  Ciencia de Datos II INF-8239-C2
 **Estudiante:** Jhonatan Leandro Cabral Pujols  
 
 
-**Laboratorio:** U01.LAB00 - Preparación y validación del entorno profesional  
-
+# U01.LAB00: Preparación y validación del entorno profesional 
 ---
-
 ### 1. Sistema Operativo y Entorno de Ejecución
 - **Entorno de desarrollo:** GitHub Codespaces (Contenedor Cloud basado en Linux)
 - **Sistema Operativo:** Linux 6.8.0-1064-azure-x86_64 con glibc 2.39
 - **Python:** 3.14.2 (GCC 13.3.0)
 - **Intérprete activo:** `/workspaces/INF8239_U01/.venv/bin/python`
 
----
 
 ### 2. Comandos Utilizados
 
@@ -42,12 +39,12 @@ python -m pip install -r requirements.txt
 ```bash
 PYTHONPATH=src python -m pytest -q
 ```
----
+
 
 ### 6. Verificación del entorno en Jupyter
 - Se ejecutó el notebook notebooks/00_verificacion.ipynb seleccionando el kernel .venv.
 - Salida validada mediante aserción sobre sys.executable.
----
+
 ### 7. Registro de Versionado
 ```bash
 git add .
@@ -55,8 +52,8 @@ git commit -m "chore: create INF-8239 reproducible environment"
 git push
 ```
 
-**Laboratorio:** U01.LAB02 - Busqueda, seleccion y auditoria de un dataset publico
-
+# U01.LAB02: Busqueda, seleccion y auditoria de un dataset publico
+---
 Este repositorio contiene la selección, auditoría, contrato de datos y baseline predictivo para el mantenimiento industrial utilizando el dataset **AI4I 2020 Predictive Maintenance**.
 
 ## 1. Instalación y Entorno
@@ -173,3 +170,35 @@ PYTHONPATH=src python -m pytest -q
 >
 > Finalmente, la integración del pipeline con `ColumnTransformer` (escalando variables continuas como temperatura, torque y velocidad de giro, y codificando la variante cualitativa de producto) junto a una máquina de soporte vectorial (SVM) con núcleo RBF, demostró la viabilidad de capturar dependencias no lineales complejas entre las tensiones mecánicas y los gradientes térmicos. El establecimiento de pruebas automatizadas mediante `pytest` garantiza que las restricciones dimensionales y semánticas del contrato de datos perduren de manera confiable a lo largo de las iteraciones analíticas posteriores.
 
+# U01.LAB03: Ensambles, Reducción Dimensional (PCA / t-SNE) y Green AI
+
+## 1. Congelar el Protocolo Metodológico
+
+* **Dataset:** AI4I 2020 Predictive Maintenance (UCI).
+* **Target:** `Machine failure` (Binario: 0 = Normal, 1 = Falla).
+* **Exclusiones de fuga (Data Leakage) e identificadores:** `['UDI', 'Product ID', 'TWF', 'HDF', 'PWF', 'OSF', 'RNF']`.
+* **Partición fija:** 80% Entrenamiento (`Xtr`, `ytr`), 20% Prueba (`Xte`, `yte`) con `random_state=42` y estratificación (`stratify=y`). La partición de prueba se mantiene intacta hasta la evaluación final.
+* **Métrica principal:** **F1-macro** y **F1 de la clase positiva (1 - Falla)**. Dado el desbalance (~3.4% de fallas), se prioriza penalizar los falsos negativos sin comprometer la eficiencia operativa.
+* **Criterio Green AI / Frontera de Pareto:** Evaluación de desempeño frente a tiempo de latencia/entrenamiento y consumo computacional.
+
+## 2. Resumen de Resultados
+
+* **Mejor Clasificador:** `HistGradientBoostingClassifier` (`boost`) dominó la frontera de Pareto con un **F1-macro de 0.9020** y **Recall-macro de 0.8593**.
+* **Eficiencia Computacional:** `boost` redujo el tiempo de entrenamiento en más de un 80% respecto a SVM y Random Forest, con una latencia de predicción de 14.4 ms y un tamaño serializado de solo 310 KB.
+* **Reducción Dimensional:** PCA al 95% de varianza redujo las 5 variables numéricas a 3 componentes, pero degradó el recall de fallas al 13%, demostrando que la varianza no supervisada no maximiza la separación de anomalías.
+* **Archivos generados:**
+  * `reports/green_ai_results.csv`: Métricas de rendimiento, tiempos y bandera de Pareto.
+  * `reports/tsne_two_seeds.png`: Visualización bidimensional comparativa de variedades con t-SNE.
+  * `reports/pareto.png`: Gráfico de dispersión de la frontera de eficiencia Green AI.
+
+## 3. Verificacion Checklist
+
+* Mismo dataset y partición del Ejercicio 01: Sí, división fija estratificada 80/20 sobre AI4I 2020 con semilla 42.
+* Al menos seis configuraciones: Sí (logistic, svm_c1, svm_c10, rf_100, rf_300, boost).
+* SVM, Random Forest y boosting: Sí, evaluados en el benchmark.
+* PCA o alternativa justificada: Sí, integrado y analizado en el paso 4
+* Dos t-SNE con semillas distintas: Sí, generado y guardado con semillas 42 y 7 en reports/tsne_two_seeds.png.
+* Tres repeticiones temporales y mediana: Sí, calculado mediante las 3 iteraciones de benchmarking.
+* Tamaño serializado e inferencia: Sí, reportados en columnas size_kb y predict_ms.
+* CSV, figuras, pruebas y README: Sí, green_ai_results.csv, tsne_two_seeds.png, pareto.png y las pruebas unitarias en tests.
+* Frontera de Pareto y decisión cuantificada: Sí, función modularizada, probada con tests unitarios y documentada.
